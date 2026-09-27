@@ -2,12 +2,13 @@ import { FontAwesome } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AppTabs() {
   const insets = useSafeAreaInsets();
 
   return (
-    <>
+    <SafeAreaView className="flex-1 bg-white" edges={["top"]}>
       <StatusBar style="dark" />
 
       <Tabs
@@ -76,7 +77,7 @@ export default function AppTabs() {
             ),
           }}
         />
-      </Tabs>
+      SafeAreaView</Tabs>
     </>
   );
 }
