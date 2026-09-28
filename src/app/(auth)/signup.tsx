@@ -6,120 +6,151 @@ import { Ionicons } from "@expo/vector-icons";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useMobileWallet } from "@wallet-ui/react-native-kit";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+type AuthLoadingState = "idle" | "google" | "wallet";
+
+const styles = {
+  brandRow: "flex-row items-baseline justify-center mb-14 mt-4",
+  brandText:
+    "text-4xl font-black text-slate-900 dark:text-white tracking-tight",
+  brandDot: "h-1.5 w-1.5 rounded-full bg-[#59c51f] ml-1",
+  headlineWrap: "items-center mb-12",
+  headline: "text-2xl font-bold text-slate-900 dark:text-white text-center",
+  subhead:
+    "mt-2 text-[15px] text-slate-500 dark:text-slate-400 text-center leading-6 max-w-[280px]",
+  buttonGroup: "gap-5",
+  dividerRow: "flex-row items-center",
+  dividerLine: "flex-1 h-px bg-slate-200 dark:bg-slate-800",
+  dividerLabel: "mx-4 text-xs font-medium text-slate-400",
+  walletButton:
+    "h-14 flex-row items-center justify-center rounded-2xl bg-[#59c51f] active:opacity-90",
+  walletButtonText: "ml-3 text-base font-semibold text-white",
+  footer: "flex-row justify-center items-center",
+  footerText: "text-slate-400 text-sm",
+  footerLink: "text-[#59c51f] font-bold text-sm",
+};
 
 export default function SignUpScreen() {
   const router = useRouter();
   const { connect } = useMobileWallet();
-  const [loadingGoogle, setLoadingGoogle] = useState(false);
-  const [loadingWallet, setLoadingWallet] = useState(false);
+  const [loading, setLoading] = useState<AuthLoadingState>("idle");
 
   async function handleGoogleSignup() {
+    setLoading("google");
     try {
-      setLoadingGoogle(true);
-
       await GoogleSignin.hasPlayServices();
       const response = await GoogleSignin.signIn();
 
       if (response.type !== "success" || !response.data.idToken) {
-        throw new Error("Google sign-in failed");
+        throw new Error("Google sign-in was cancelled or returned no token");
       }
 
-      const { data, error } = await supabase.auth.signInWithIdToken({
+      // The user profile is created by a database trigger.
+      const { error } = await supabase.auth.signInWithIdToken({
         provider: "google",
         token: response.data.idToken,
       });
-
       if (error) throw error;
 
-      // Profile is auto-created by the database trigger
-      // Go to onboarding
       router.replace("/(tabs)");
-    } catch (err: any) {
-      console.log(err);
-      Alert.alert("Google signup failed", err?.message || "Something went wrong");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Something went wrong";
+      Alert.alert("Google signup failed", message);
     } finally {
-      setLoadingGoogle(false);
+      setLoading("idle");
     }
   }
 
   async function handleConnectWallet() {
-    setLoadingWallet(true);
+    setLoading("wallet");
     try {
-      const wallet = await connect();
-      // TODO: Proper Solana wallet auth later
+      await connect();
+
+      // TODO: replace with real Sign In With Solana (SIWS) verified against
+      // Supabase so the wallet is tied to an authenticated identity.
       router.replace("/(tabs)");
-    } catch (err: any) {
-      Alert.alert("Wallet connection failed", err?.message || "Could not connect wallet");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not connect wallet";
+      Alert.alert("Wallet connection failed", message);
     } finally {
-      setLoadingWallet(false);
+      setLoading("idle");
     }
   }
 
   return (
-    <View className="flex-1 bg-slate-50 dark:bg-slate-950 px-8 pt-12 justify-between pb-12">
-      <View>
-        <BackButton />
+    <SafeAreaView
+      className="flex-1 bg-slate-50 dark:bg-slate-950"
+      style={{ flex: 1, backgroundColor: "#f8fafc" }}
+      edges={["top", "bottom"]}
+    >
+      {/* Inline padding so spacing works even if NativeWind isn't applied */}
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "space-between",
+          paddingHorizontal: 32,
+          paddingTop: 16,
+          paddingBottom: 32,
+        }}
+      >
+        <View>
+          <BackButton />
 
-        {/* Brand */}
-        <View className="flex-row items-baseline justify-center mb-14 mt-4">
-          <Text className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-            AfriLoom
-          </Text>
-          <View className="h-1.5 w-1.5 rounded-full bg-[#59c51f] ml-1" />
-        </View>
-
-        {/* Headline */}
-        <View className="items-center mb-12">
-          <Text className="text-2xl font-bold text-slate-900 dark:text-white text-center">
-            Create your account
-          </Text>
-          <Text className="mt-2 text-[15px] text-slate-500 dark:text-slate-400 text-center leading-6 max-w-[280px]">
-            Sign up with Google or connect your Solana wallet to get started.
-          </Text>
-        </View>
-
-        {/* Auth buttons */}
-        <View className="gap-5">
-          <SocialAuthButtons
-            onGooglePress={handleGoogleSignup}
-            loading={loadingGoogle}
-          />
-
-          {/* Divider */}
-          <View className="flex-row items-center">
-            <View className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
-            <Text className="mx-4 text-xs font-medium text-slate-400">OR</Text>
-            <View className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+          <View className={styles.brandRow}>
+            <Text className={styles.brandText}>AfriLoom</Text>
+            <View className={styles.brandDot} />
           </View>
 
-          <Pressable
-            onPress={handleConnectWallet}
-            disabled={loadingGoogle || loadingWallet}
-            className="h-14 flex-row items-center justify-center rounded-2xl bg-[#59c51f] active:opacity-90"
-          >
-            {loadingWallet ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="wallet-outline" size={20} color="#fff" />
-                <Text className="ml-3 text-base font-semibold text-white">
-                  Connect Wallet
-                </Text>
-              </>
-            )}
+          <View className={styles.headlineWrap}>
+            <Text className={styles.headline}>Create your account</Text>
+            <Text className={styles.subhead}>
+              Sign up with Google or connect your Solana wallet to get started.
+            </Text>
+          </View>
+
+          <View className={styles.buttonGroup}>
+            <SocialAuthButtons
+              onGooglePress={handleGoogleSignup}
+              loading={loading === "google"}
+            />
+
+            <View className={styles.dividerRow}>
+              <View className={styles.dividerLine} />
+              <Text className={styles.dividerLabel}>OR</Text>
+              <View className={styles.dividerLine} />
+            </View>
+
+            <Pressable
+              onPress={handleConnectWallet}
+              disabled={loading !== "idle"}
+              className={styles.walletButton}
+            >
+              {loading === "wallet" ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="wallet-outline" size={20} color="#fff" />
+                  <Text className={styles.walletButtonText}>
+                    Connect Wallet
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+
+        <View className={styles.footer}>
+          <Text className={styles.footerText}>Already have an account? </Text>
+          <Pressable onPress={() => router.push("/(auth)/login")}>
+            <Text className={styles.footerLink}>Log in</Text>
           </Pressable>
         </View>
       </View>
-
-      {/* Footer */}
-      <View className="flex-row justify-center items-center mb-10">
-        <Text className="text-slate-400 text-sm">Already have an account? </Text>
-        <Pressable onPress={() => router.push("/(auth)/login")}>
-          <Text className="text-[#59c51f] font-bold text-sm">Log in</Text>
-        </Pressable>
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }

@@ -3,7 +3,7 @@ import { getAddMemoInstruction } from "@solana-program/memo";
 import { useQuery } from "@tanstack/react-query";
 import { useMobileWallet } from "@wallet-ui/react-native-kit";
 import { useState } from "react";
-import { Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 
 export default function Wallet() {
   const { account, connect, disconnect, client, chain, sendTransactions } =
@@ -31,33 +31,14 @@ export default function Wallet() {
     }
   }
 
-  async function onSendMemo() {
-    setBusy(true);
-    setError(null);
-    try {
-      const sig = await sendTransactions([
-        getAddMemoInstruction({ memo: "Hello from AfriLoom" }),
-      ]);
-      setSignature(sig);
-      balance.refetch();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Transaction failed");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   const address = account ? String(account.address) : "";
   const short = address ? `${address.slice(0, 4)}…${address.slice(-4)}` : "";
 
   return (
-    <ScrollView
-      className="flex-1 bg-slate-50 dark:bg-slate-950"
-      contentContainerStyle={{ paddingBottom: 40 }}
-      showsVerticalScrollIndicator={false}
-    >
+    <View className="flex-1 bg-slate-50 dark:bg-slate-950">
       {/* Header */}
-      <View className="px-6 pt-14 pb-6">
+      <View className="px-6 pb-6 pt-6">
         <Text className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
           Wallet
         </Text>
@@ -67,7 +48,7 @@ export default function Wallet() {
       </View>
 
       {/* Main content */}
-      <View className="px-6">
+      <View className="flex-1 px-6">
         {account ? (
           <View className="gap-6">
             {/* Balance card */}
@@ -188,6 +169,6 @@ export default function Wallet() {
           </View>
         )}
       </View>
-    </ScrollView>
+    </View>
   );
 }

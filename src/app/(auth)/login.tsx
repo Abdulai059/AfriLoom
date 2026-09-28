@@ -5,14 +5,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useMobileWallet } from "@wallet-ui/react-native-kit";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type AuthLoadingState = "idle" | "google" | "wallet";
 
 const styles = {
-  screen:
-    "flex-1 bg-slate-50 dark:bg-slate-950 px-8 pt-16 justify-between pb-12",
   brandRow: "flex-row items-baseline justify-center mb-16",
   brandText:
     "text-4xl font-black text-slate-900 dark:text-white tracking-tight",
@@ -28,7 +27,7 @@ const styles = {
   walletButton:
     "h-14 flex-row items-center justify-center rounded-2xl bg-[#59c51f] active:opacity-90",
   walletButtonText: "ml-3 text-base font-semibold text-white",
-  footer: "flex-row justify-center items-center mb-10",
+  footer: "flex-row justify-center items-center",
   footerText: "text-slate-400 text-sm",
   footerLink: "text-[#59c51f] font-bold text-sm",
 };
@@ -102,55 +101,73 @@ export default function LoginScreen() {
   }
 
   return (
-    <View className={styles.screen}>
-      <View>
-        <View className={styles.brandRow}>
-          <Text className={styles.brandText}>AfriLoom</Text>
-          <View className={styles.brandDot} />
-        </View>
-
-        <View className={styles.headlineWrap}>
-          <Text className={styles.headline}>Welcome back</Text>
-          <Text className={styles.subhead}>
-            Sign in with Google or connect your Solana wallet to continue.
-          </Text>
-        </View>
-
-        <View className={styles.buttonGroup}>
-          <SocialAuthButtons
-            onGooglePress={handleGoogleLogin}
-            loading={loading === "google"}
-          />
-
-          <View className={styles.dividerRow}>
-            <View className={styles.dividerLine} />
-            <Text className={styles.dividerLabel}>OR</Text>
-            <View className={styles.dividerLine} />
+    <SafeAreaView
+      className="flex-1 bg-slate-50 dark:bg-slate-950"
+      style={{ flex: 1, backgroundColor: "#f8fafc" }}
+    >
+      {/* Inline padding so spacing works even if NativeWind isn't applied */}
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "space-between",
+          paddingHorizontal: 32,
+          paddingTop: 32,
+          paddingBottom: 32,
+        }}
+      >
+        <View>
+          <View className={styles.brandRow}>
+            <Text className={styles.brandText}>AfriLoom</Text>
+            <View className={styles.brandDot} />
           </View>
 
-          <Pressable
-            onPress={handleConnectWallet}
-            disabled={loading !== "idle"}
-            className={styles.walletButton}
-          >
-            {loading === "wallet" ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="wallet-outline" size={20} color="#fff" />
-                <Text className={styles.walletButtonText}>Connect Wallet</Text>
-              </>
-            )}
+          <View className={styles.headlineWrap}>
+            <Text className={styles.headline}>Welcome back</Text>
+            <Text className={styles.subhead}>
+              Sign in with Google or connect your Solana wallet to continue.
+            </Text>
+          </View>
+
+          <View className={styles.buttonGroup}>
+            <SocialAuthButtons
+              onGooglePress={handleGoogleLogin}
+              loading={loading === "google"}
+            />
+
+            <View className={styles.dividerRow}>
+              <View className={styles.dividerLine} />
+              <Text className={styles.dividerLabel}>OR</Text>
+              <View className={styles.dividerLine} />
+            </View>
+
+            <Pressable
+              onPress={handleConnectWallet}
+              disabled={loading !== "idle"}
+              className={styles.walletButton}
+            >
+              {loading === "wallet" ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Ionicons name="wallet-outline" size={20} color="#fff" />
+                  <Text className={styles.walletButtonText}>
+                    Connect Wallet
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+
+        <View className={styles.footer}>
+          <Text className={styles.footerText}>
+            Don&apos;t have an account?{" "}
+          </Text>
+          <Pressable onPress={() => router.push("/(auth)/signup")}>
+            <Text className={styles.footerLink}>Sign up</Text>
           </Pressable>
         </View>
       </View>
-
-      <View className={styles.footer}>
-        <Text className={styles.footerText}>Don&apos;t have an account? </Text>
-        <Pressable onPress={() => router.push("/(auth)/signup")}>
-          <Text className={styles.footerLink}>Sign up</Text>
-        </Pressable>
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }
