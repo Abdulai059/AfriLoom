@@ -6,23 +6,22 @@ import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useMobileWallet } from "@wallet-ui/react-native-kit";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 type AuthLoadingState = "idle" | "google" | "wallet";
 
 const styles = {
   brandRow: "flex-row items-baseline justify-center mb-16",
-  brandText:
-    "text-4xl font-black text-slate-900 dark:text-white tracking-tight",
+  brandText: "text-4xl font-black text-slate-900 tracking-tight",
   brandDot: "h-1.5 w-1.5 rounded-full bg-[#59c51f] ml-1",
   headlineWrap: "items-center mb-12",
-  headline: "text-2xl font-bold text-slate-900 dark:text-white text-center",
-  subhead:
-    "mt-2 text-[15px] text-slate-500 dark:text-slate-400 text-center leading-6 max-w-[280px]",
+  headline: "text-2xl font-bold text-slate-900 text-center",
+  subhead: "mt-2 text-base text-slate-500 text-center leading-6 max-w-[280px]",
+  errorText: "text-sm text-red-500 text-center mb-4",
   buttonGroup: "gap-5",
   dividerRow: "flex-row items-center",
-  dividerLine: "flex-1 h-px bg-slate-200 dark:bg-slate-800",
+  dividerLine: "flex-1 h-px bg-slate-200",
   dividerLabel: "mx-4 text-xs font-medium text-slate-400",
   walletButton:
     "h-14 flex-row items-center justify-center rounded-2xl bg-[#59c51f] active:opacity-90",
@@ -36,22 +35,26 @@ export default function LoginScreen() {
   const router = useRouter();
   const { connect } = useMobileWallet();
   const [loading, setLoading] = useState<AuthLoadingState>("idle");
+  const [error, setError] = useState<string | null>(null);
 
   async function upsertUserProfile(user: {
     id: string;
     email?: string | null;
     user_metadata?: Record<string, any>;
   }) {
-    const { error } = await supabase.from("users").upsert({
+    const { error: upsertError } = await supabase.from("users").upsert({
       id: user.id,
       email: user.email,
       full_name: user.user_metadata?.full_name,
       avatar_url: user.user_metadata?.avatar_url,
     });
-    if (error) console.log("Failed to upsert user profile", error);
+    if (upsertError) {
+      console.log("Failed to upsert user profile", upsertError);
+    }
   }
 
   async function handleGoogleLogin() {
+    setError(null);
     setLoading("google");
     try {
       await GoogleSignin.hasPlayServices();
@@ -61,11 +64,12 @@ export default function LoginScreen() {
         throw new Error("Google sign-in was cancelled or returned no token");
       }
 
-      const { data, error } = await supabase.auth.signInWithIdToken({
-        provider: "google",
-        token: response.data.idToken,
-      });
-      if (error) throw error;
+      const { data, error: signInError } =
+        await supabase.auth.signInWithIdToken({
+          provider: "google",
+          token: response.data.idToken,
+        });
+      if (signInError) throw signInError;
 
       if (data.user) await upsertUserProfile(data.user);
 
@@ -73,13 +77,14 @@ export default function LoginScreen() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Something went wrong";
-      Alert.alert("Google login failed", message);
+      setError(message);
     } finally {
       setLoading("idle");
     }
   }
 
   async function handleConnectWallet() {
+    setError(null);
     setLoading("wallet");
     try {
       await connect();
@@ -87,18 +92,22 @@ export default function LoginScreen() {
       // TODO: replace with real Sign In With Solana (SIWS) verified against
       // Supabase, instead of an anonymous session, so the wallet address is
       // tied to an actual authenticated identity.
-      const { error } = await supabase.auth.signInAnonymously();
-      if (error) throw error;
+      const { error: signInError } = await supabase.auth.signInAnonymously();
+      if (signInError) throw signInError;
 
       router.replace("/(tabs)");
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Could not connect wallet";
-      Alert.alert("Wallet connection failed", message);
+      setError(message);
     } finally {
       setLoading("idle");
     }
   }
+
+  const googleLoading = loading === "google";
+  const walletLoading = loading === "wallet";
+  const anyLoading = loading !== "idle";
 
   return (
     <SafeAreaView
@@ -128,10 +137,17 @@ export default function LoginScreen() {
             </Text>
           </View>
 
+          {error && (
+            <Text className={styles.errorText} accessibilityLiveRegion="polite">
+              {error}
+            </Text>
+          )}
+
           <View className={styles.buttonGroup}>
             <SocialAuthButtons
               onGooglePress={handleGoogleLogin}
-              loading={loading === "google"}
+              loading={googleLoading}
+              disabled={anyLoading}
             />
 
             <View className={styles.dividerRow}>
@@ -142,10 +158,15 @@ export default function LoginScreen() {
 
             <Pressable
               onPress={handleConnectWallet}
-              disabled={loading !== "idle"}
-              className={styles.walletButton}
+              disabled={anyLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Connect Solana wallet"
+              accessibilityState={{ disabled: anyLoading, busy: walletLoading }}
+              className={`${styles.walletButton} ${
+                anyLoading && !walletLoading ? "opacity-40" : ""
+              }`}
             >
-              {loading === "wallet" ? (
+              {walletLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
@@ -171,3 +192,7 @@ export default function LoginScreen() {
     </SafeAreaView>
   );
 }
+
+
+
+

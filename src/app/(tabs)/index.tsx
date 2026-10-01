@@ -1,5 +1,6 @@
-import HomeHeader from "@/components/HomeHeader";
 import CategoryList from "@/components/CategoryList";
+import HomeHeader from "@/components/HomeHeader";
+import ProductGrid from "@/components/ProductScreen";
 import PromoBanner from "@/components/PromoBanner";
 import SectionHeader from "@/components/SectionHeader";
 import { ScrollView } from "react-native";
@@ -21,6 +22,9 @@ export default function HomeScreen() {
       />
       <SectionHeader title="Categories" />
       <CategoryList />
+
+      <SectionHeader title="Featured Products" />
+      <ProductGrid />
     </ScrollView>
   );
 }

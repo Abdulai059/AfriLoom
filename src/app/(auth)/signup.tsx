@@ -14,16 +14,14 @@ type AuthLoadingState = "idle" | "google" | "wallet";
 
 const styles = {
   brandRow: "flex-row items-baseline justify-center mb-14 mt-4",
-  brandText:
-    "text-4xl font-black text-slate-900 dark:text-white tracking-tight",
+  brandText: "text-4xl font-black text-slate-900 tracking-tight",
   brandDot: "h-1.5 w-1.5 rounded-full bg-[#59c51f] ml-1",
   headlineWrap: "items-center mb-12",
-  headline: "text-2xl font-bold text-slate-900 dark:text-white text-center",
-  subhead:
-    "mt-2 text-[15px] text-slate-500 dark:text-slate-400 text-center leading-6 max-w-[280px]",
+  headline: "text-2xl font-bold text-slate-900 text-center",
+  subhead: "mt-2 text-base text-slate-500 text-center leading-6 max-w-[280px]",
   buttonGroup: "gap-5",
   dividerRow: "flex-row items-center",
-  dividerLine: "flex-1 h-px bg-slate-200 dark:bg-slate-800",
+  dividerLine: "flex-1 h-px bg-slate-200",
   dividerLabel: "mx-4 text-xs font-medium text-slate-400",
   walletButton:
     "h-14 flex-row items-center justify-center rounded-2xl bg-[#59c51f] active:opacity-90",
