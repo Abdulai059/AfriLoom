@@ -1,5 +1,6 @@
+// app/index.tsx  (or whatever your splash file is)
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import { useEffect } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 
@@ -8,14 +9,15 @@ export default function SplashScreen() {
 
   useEffect(() => {
     async function checkAuth() {
-      const token = await SecureStore.getItemAsync("authToken");
-      if (token) {
+      const { data } = await supabase.auth.getSession();
+
+      if (data.session) {
         router.replace("/(tabs)");
       } else {
-        // Redirect to login screen
         router.replace("/(auth)/login");
       }
     }
+
     checkAuth();
   }, [router]);
 

@@ -1,10 +1,20 @@
 import { Row } from "@/components/ui/Row";
+import { useCreatorWalletForCurrency } from "@/hooks/useCreatorWallets";
 import { useProduct } from "@/hooks/useProducts";
+import {
+  buildSkrPaymentInstructions,
+  buildSolPaymentInstruction,
+  buildUsdcPaymentInstructions,
+} from "@/lib/payments";
 import { Ionicons } from "@expo/vector-icons";
+import { getAddMemoInstruction } from "@solana-program/memo";
+import { useQuery } from "@tanstack/react-query";
+import { useMobileWallet } from "@wallet-ui/react-native-kit";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -48,6 +58,26 @@ export default function CheckoutScreen() {
 
   const { data: product, isLoading, isError } = useProduct(id!);
 
+  const { account, sendTransactions, getTransactionSigner, client } =
+    useMobileWallet();
+
+  // Needed by getTransactionSigner as minContextSlot
+  const { data: currentSlot } = useQuery({
+    queryKey: ["current-slot"],
+    queryFn: () => client.rpc.getSlot().send(),
+    enabled: !!account,
+  });
+
+  const payerSigner =
+    account && currentSlot !== undefined
+      ? getTransactionSigner(account.address, currentSlot)
+      : undefined;
+
+  const { data: merchantWallet } = useCreatorWalletForCurrency(
+    product?.creator_id,
+    selectedCurrency,
+  );
+
   if (isLoading) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
@@ -71,23 +101,85 @@ export default function CheckoutScreen() {
   }
 
   const handlePay = async () => {
+    if (!account || !payerSigner) {
+      Alert.alert(
+        "Connect your wallet first",
+        "Go to the Wallet tab to connect.",
+      );
+      return;
+    }
+
+    if (!merchantWallet) {
+      Alert.alert(
+        "Payment unavailable",
+        `This creator hasn't set up ${selectedCurrency.toUpperCase()} payouts yet.`,
+      );
+      return;
+    }
+
     setIsPaying(true);
-    // Simulate payment delay — replace with real wallet/tx later
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-    setIsPaying(false);
-    router.replace({
-      pathname: "/product/payment-success",
-      params: {
-        productId: product.id,
-        currency: selectedCurrency,
-        amount: String(product.price),
-      },
-    });
+
+    try {
+      const memoIx = getAddMemoInstruction({
+        memo: `AfriLoom order ${product.id}`,
+      });
+
+      let instructions;
+
+      if (selectedCurrency === "sol") {
+        instructions = [
+          buildSolPaymentInstruction(
+            payerSigner,
+            merchantWallet,
+            product.price,
+          ),
+          memoIx,
+        ];
+      } else if (selectedCurrency === "usdc") {
+        const ixs = await buildUsdcPaymentInstructions(
+          payerSigner,
+          merchantWallet,
+          product.price,
+        );
+        instructions = [...ixs, memoIx];
+      } else {
+        const ixs = await buildSkrPaymentInstructions(
+          payerSigner,
+          merchantWallet,
+          product.price,
+        );
+        instructions = [...ixs, memoIx];
+      }
+
+      console.log("payerSigner:", payerSigner);
+      console.log("merchantWallet:", merchantWallet);
+      console.log("instructions:", instructions);
+
+      const signature = await sendTransactions(instructions);
+      console.log("Got signature:", signature);
+
+      router.replace({
+        pathname: "/product/payment-success",
+        params: {
+          productId: product.id,
+          currency: selectedCurrency,
+          amount: String(product.price),
+          signature,
+        },
+      });
+    } catch (err) {
+      console.log("Payment failed", err);
+      Alert.alert(
+        "Payment failed",
+        err instanceof Error ? err.message : "Something went wrong",
+      );
+    } finally {
+      setIsPaying(false);
+    }
   };
 
   return (
     <View className="flex-1 bg-white">
-      {/* Header */}
       <View
         className="flex-row items-center px-4 pb-3 border-b border-slate-100"
         style={{ paddingTop: insets.top + 8 }}
@@ -108,7 +200,6 @@ export default function CheckoutScreen() {
         contentContainerStyle={{ paddingBottom: 140 }}
         className="px-5"
       >
-        {/* Order summary card */}
         <Text className="text-sm font-semibold text-slate-400 mt-5 mb-3 uppercase tracking-wide">
           Order Summary
         </Text>
@@ -135,7 +226,6 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {/* Currency selector */}
         <Text className="text-sm font-semibold text-slate-400 mt-8 mb-3 uppercase tracking-wide">
           Pay with
         </Text>
@@ -165,7 +255,6 @@ export default function CheckoutScreen() {
                     color="white"
                   />
                 </View>
-
                 <View className="flex-1 ml-3">
                   <Text className="text-base font-bold text-slate-900">
                     {currency.label}
@@ -176,7 +265,6 @@ export default function CheckoutScreen() {
                       : currency.subtitle}
                   </Text>
                 </View>
-
                 <View
                   className={`w-5 h-5 rounded-full border-2 items-center justify-center ${
                     isSelected
@@ -193,7 +281,6 @@ export default function CheckoutScreen() {
           })}
         </View>
 
-        {/* Price breakdown */}
         <Text className="text-sm font-semibold text-slate-400 mt-8 mb-3 uppercase tracking-wide">
           Breakdown
         </Text>
@@ -216,7 +303,6 @@ export default function CheckoutScreen() {
         </View>
       </ScrollView>
 
-      {/* Sticky Pay button */}
       <View
         className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-5 pt-3"
         style={{ paddingBottom: insets.bottom + 12 }}
@@ -224,9 +310,7 @@ export default function CheckoutScreen() {
         <Pressable
           onPress={handlePay}
           disabled={isPaying}
-          className={`py-4 rounded-2xl items-center ${
-            isPaying ? "bg-slate-400" : "bg-slate-900 active:opacity-90"
-          }`}
+          className={`py-4 rounded-2xl items-center ${isPaying ? "bg-slate-400" : "bg-slate-900 active:opacity-90"}`}
         >
           <Text className="text-white font-bold text-base">
             {isPaying
@@ -238,4 +322,3 @@ export default function CheckoutScreen() {
     </View>
   );
 }
-
